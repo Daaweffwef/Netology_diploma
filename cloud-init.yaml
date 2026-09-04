@@ -1,0 +1,13 @@
+#cloud-config
+ssh_pwauth: false
+
+users:
+  - name: ubuntu
+    groups:
+      - sudo
+    shell: /bin/bash
+    sudo: "ALL=(ALL) NOPASSWD:ALL
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFyP6QlXita25X3MtQ/+EVGoWcDHb98ZN9tTB9Mvap7n trapezia@trapezia-VMware-Virtual-Platform
+
+

@@ -1,0 +1,53 @@
+- name: Install and configure Zabbix Agent
+  hosts: web
+  become: true
+
+  vars:
+    zabbix_server: "10.10.10.6"
+
+  tasks:
+    - name: Download Zabbix repository package
+      ansible.builtin.get_url:
+        url: "https://repo.zabbix.com/zabbix/7.4/release/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest+ubuntu24.04_all.deb"
+        dest: /tmp/zabbix-release.deb
+        mode: '0644'
+
+    - name: Install Zabbix repository
+      ansible.builtin.apt:
+        deb: /tmp/zabbix-release.deb
+
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: Install Zabbix agent
+      ansible.builtin.apt:
+        name: zabbix-agent
+        state: present
+
+    - name: Configure Zabbix agent server
+      ansible.builtin.lineinfile:
+        path: /etc/zabbix/zabbix_agentd.conf
+        regexp: '^Server='
+        line: "Server={{ zabbix_server }}"
+        backup: true
+      notify: Restart Zabbix agent
+
+    - name: Configure Zabbix agent hostname
+      ansible.builtin.lineinfile:
+        path: /etc/zabbix/zabbix_agentd.conf
+        regexp: '^Hostname='
+        line: "Hostname={{ inventory_hostname }}"
+      notify: Restart Zabbix agent
+
+    - name: Enable and start Zabbix agent
+      ansible.builtin.systemd:
+        name: zabbix-agent
+        enabled: true
+        state: started
+
+  handlers:
+    - name: Restart Zabbix agent
+      ansible.builtin.systemd:
+        name: zabbix-agent
+        state: restarted

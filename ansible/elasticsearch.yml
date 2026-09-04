@@ -1,0 +1,42 @@
+- name: Install Elasticsearch
+  hosts: elk
+  become: true
+
+  tasks:
+    - name: Install required packages
+      ansible.builtin.apt:
+        name:
+          - wget
+          - gnupg
+        state: present
+        update_cache: true
+
+    - name: Download Elasticsearch package
+      ansible.builtin.get_url:
+        url: "https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-8.19.21-amd64.deb"
+        dest: /tmp/elasticsearch.deb
+        mode: '0644'
+
+    - name: Install Elasticsearch package
+      ansible.builtin.apt:
+        deb: /tmp/elasticsearch.deb
+        state: present
+
+    - name: Configure Elasticsearch network host
+      ansible.builtin.lineinfile:
+        path: /etc/elasticsearch/elasticsearch.yml
+        regexp: '^#?network.host:'
+        line: "network.host: 0.0.0.0"
+      notify: Restart Elasticsearch
+
+    - name: Enable and start Elasticsearch
+      ansible.builtin.systemd:
+        name: elasticsearch
+        enabled: true
+        state: started
+
+  handlers:
+    - name: Restart Elasticsearch
+      ansible.builtin.systemd:
+        name: elasticsearch
+        state: restarted

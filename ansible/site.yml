@@ -1,0 +1,13 @@
+---
+- name: Deploy website
+  hosts: web
+  become: true
+
+  tasks:
+    - name: Copy website
+      ansible.builtin.copy:
+        src: files/index.html
+        dest: /var/www/html/index.html
+        owner: root
+        group: root
+        mode: "0644"

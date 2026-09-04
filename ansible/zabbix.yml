@@ -1,0 +1,111 @@
+---
+- name: Install Zabbix Server
+  hosts: zabbix.ru-central1.internal
+  become: true
+
+  vars:
+    zabbix_version: "7.4"
+    zabbix_db_name: "zabbix"
+    zabbix_db_user: "zabbix"
+    zabbix_db_password: "zabbix_admin"
+
+  tasks:
+
+    - name: Install base packages
+      ansible.builtin.apt:
+        name:
+          - wget
+          - postgresql
+          - nginx
+        state: present
+        update_cache: true
+    
+    - name: Download Zabbix repository package
+      ansible.builtin.get_url:
+        url: "https://repo.zabbix.com/zabbix/7.4/release/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest+ubuntu24.04_all.deb"
+        dest: "/tmp/zabbix-release.deb"
+        mode: "0644"
+
+    - name: Install Zabbix repository
+      ansible.builtin.apt:
+        deb: /tmp/zabbix-release.deb
+
+    - name: Update APT cache
+      ansible.builtin.apt:
+        update_cache: true
+
+    - name: Install Zabbix packages
+      ansible.builtin.apt:
+        name:
+          - zabbix-server-pgsql
+          - zabbix-frontend-php
+          - php8.3-pgsql
+          - zabbix-nginx-conf
+          - zabbix-sql-scripts
+          - zabbix-agent
+        state: present
+
+    - name: Ensure PostgreSQL is running
+      ansible.builtin.systemd:
+        name: postgresql
+        state: started
+        enabled: true
+
+    - name: Check whether Zabbix database exists
+      ansible.builtin.command:
+        cmd: sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='{{ zabbix_db_name }}'"
+      register: zabbix_db_exists
+      changed_when: false
+
+    - name: Create Zabbix database user
+      ansible.builtin.command:
+        cmd: sudo -u postgres psql -c "CREATE USER {{ zabbix_db_user }} WITH PASSWORD '{{ zabbix_db_password }}';"
+      when: zabbix_db_exists.stdout | trim != "1"
+
+    - name: Create Zabbix database
+      ansible.builtin.command:
+        cmd: sudo -u postgres createdb -O {{ zabbix_db_user }} {{ zabbix_db_name }}
+      when: zabbix_db_exists.stdout | trim != "1"
+
+    - name: Check whether Zabbix schema is initialized
+      ansible.builtin.command:
+        cmd: sudo -u postgres psql -d {{ zabbix_db_name }} -tAc "SELECT 1 FROM information_schema.tables WHERE table_name='dbversion'"
+      register: zabbix_schema_exists
+      changed_when: false
+
+    - name: Import Zabbix database schema
+      ansible.builtin.shell:
+        cmd: |
+          zcat /usr/share/zabbix/sql-scripts/postgresql/server.sql.gz |
+          sudo -u zabbix psql zabbix
+      when: zabbix_schema_exists.stdout | trim != "1"
+
+    - name: Configure Zabbix database password
+      ansible.builtin.lineinfile:
+        path: /etc/zabbix/zabbix_server.conf
+        regexp: '^#?DBPassword='
+        line: "DBPassword={{ zabbix_db_password }}"
+
+    - name: Enable Zabbix Server
+      ansible.builtin.systemd:
+        name: zabbix-server
+        state: started
+        enabled: true
+
+    - name: Enable Zabbix Agent
+      ansible.builtin.systemd:
+        name: zabbix-agent
+        state: started
+        enabled: true
+
+    - name: Enable Nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: restarted
+        enabled: true
+
+    - name: Enable PHP-FPM
+      ansible.builtin.systemd:
+        name: php8.3-fpm
+        state: restarted
+        enabled: true

@@ -1,0 +1,41 @@
+---
+- name: Install and configure Filebeat
+  hosts: web
+  become: true
+
+  tasks:
+
+    - name: Copy Filebeat package
+      ansible.builtin.copy:
+        src: filebeat-8.19.21-amd64.deb
+        dest: /tmp/filebeat-8.19.21-amd64.deb
+        mode: '0644'
+
+    - name: Install Filebeat
+      ansible.builtin.apt:
+        deb: /tmp/filebeat-8.19.21-amd64.deb
+        state: present
+
+    - name: Configure Filebeat
+      ansible.builtin.copy:
+        dest: /etc/filebeat/filebeat.yml
+        mode: '0644'
+        content: |
+          filebeat.inputs:
+            - type: filestream
+              id: nginx-logs
+              enabled: true
+              paths:
+                - /var/log/nginx/*.log
+
+          output.elasticsearch:
+            hosts: ["http://10.10.20.31:9200"]
+
+          setup.kibana:
+            host: "http://10.10.20.31:5601"
+
+    - name: Enable and start Filebeat
+      ansible.builtin.systemd:
+        name: filebeat
+        enabled: true
+        state: started
