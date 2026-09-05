@@ -4,8 +4,10 @@ resource "yandex_compute_instance" "web01" {
   platform_id = "standard-v3"
   zone        = "ru-central1-a"
 
+  allow_stopping_for_update = true
+
   resources {
-    core_fraction = 20
+    core_fraction = 100
     cores         = 2
     memory        = 2
   }
@@ -34,8 +36,10 @@ resource "yandex_compute_instance" "web02" {
   platform_id = "standard-v3"
   zone        = "ru-central1-b"
 
+  allow_stopping_for_update = true
+
   resources {
-    core_fraction = 20
+    core_fraction = 100
     cores         = 2
     memory        = 2
   }
